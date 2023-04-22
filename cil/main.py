@@ -11,7 +11,7 @@ import torch
 import statistics
 from torch.utils.data import DataLoader
 from continuum.metrics import Logger
-
+import torch 
 from continual_clip import utils
 from continual_clip.models import load_model
 from continual_clip.datasets import build_cl_scenarios
