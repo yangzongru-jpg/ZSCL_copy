@@ -15,12 +15,17 @@ class DynamicDataset():
     def __init__(self, cfg):
         self.ref_database = {}  # all data key = dataset_name; value is 4D tensor (num_image, 3, 224, 224)
         self.ref_names = [] # collect the name of the dataset 
-        self.ref_model, _, self.test_preprocess = clip.load(cfg.model_name, jit=False)
+        self.ref_model, _, self.test_preprocess = clip.load(cfg.model_name, jit=False) #self.ref_model 是一个 PyTorch 模型 预训练好的model
+        #self.test_preprocess 是一个针对图像进行预处理的函数，用于将输入图像转换为模型可接受的格式
         self.cur_dataset = None
         self.memory_size = 5000
         self.batch_id = 0
 
     def update(self, dataset, load):
+        '''
+        update() 根据自适应构建更新当前数据集并更新 self.ref_database 和 self.ref_names。如果这是第一个数据集，则会构建新数据集并添加到 self.ref_database 和 self.ref_names 中。
+        否则，会根据 load 直接重新加载一个新的模型，并从新的 self.cur_dataset 中构建一个新的示例集以进行下一次蒸馏。
+        '''
         # load is a model directly
         self.cur_dataset = dataset
         if not load: # first round USELESS FOR CICL
@@ -33,6 +38,9 @@ class DynamicDataset():
             self.constructExampleSet()
 
     def reduceExampleSet(self):
+        '''
+        reduceExampleSet() 方法用于减小示例集的大小。具体地，它计算每个示例集的新大小，并只保留前m 个示例。结果存储在 self.ref_database 中。
+        '''
         print("Reducing Example Set")
         K, t = self.memory_size, len(self.ref_names)+1
         m = K // t
@@ -40,6 +48,9 @@ class DynamicDataset():
             self.ref_database[dataset] = self.ref_database[dataset][:m]
 
     def constructExampleSet(self):
+        '''
+        constructExampleSet() 方法用于构建示例集。具体地，它首先计算当前数据集的特征向量，然后计算当前数据集与参考数据集之间的距离。最后，它返回当前数据集中与参考数据集中的示例最不相似的示例。
+        '''
         # breakpoint()
         print("Constructing Example Set")
         self.ref_names.append(self.batch_id)
@@ -89,6 +100,9 @@ class DynamicDataset():
         self.batch_id = self.batch_id + 1
 
     def getNewDataset(self):
+        '''
+        getNewDataset() 方法用于获取新数据集。它首先计算当前数据集的特征向量，然后计算当前数据集与参考数据集之间的距离。最后，它返回当前数据集中与参考数据集中的示例最不相似的示例。
+        '''
         samples = [] 
         count = 0
         for sample in tqdm(self.cur_dataset):
@@ -99,6 +113,9 @@ class DynamicDataset():
         return samples   
 
     def get(self):
+        '''
+        get() 方法用于获取当前的数据集（self.cur_dataset）以及相应的数据预处理
+        '''
         print("Getting Reference Images")
         value = list(self.ref_database.values())
         out = []

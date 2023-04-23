@@ -17,7 +17,7 @@ from continual_clip.models import load_model
 from continual_clip.datasets import build_cl_scenarios
 
 
-@hydra.main(config_path=None, config_name=None, version_base="1.1") 
+@hydra.main(config_path=None, config_name=None, version_base="1.1") #这个hydra这个装饰器有什么用呢？
 def continual_clip(cfg: DictConfig) -> None:
 
     cfg.workdir = utils.get_workdir(path=os.getcwd())
@@ -47,10 +47,12 @@ def continual_clip(cfg: DictConfig) -> None:
         # breakpoint()
         logging.info(f"Evaluation for task {task_id} has started.")
         # breakpoint()
+        #下面这一步的model是训练的
         model.adaptation(task_id, cfg, train_dataset, train_classes_names)
 
         eval_loader = DataLoader(eval_dataset[:task_id + 1], batch_size=cfg.batch_size)
         # breakpoint()
+        #下面这一步的model是训练好的，fixed，然后做测试
         for inputs, targets, task_ids in tqdm(eval_loader):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = model(inputs)

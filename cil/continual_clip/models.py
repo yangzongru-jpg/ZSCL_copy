@@ -33,16 +33,24 @@ class ClassIncremental(nn.Module):
         self.dynamic_dataset = DynamicDataset(cfg)
     
     def forward(self, image):
+        '''
+        input: image(tensor)--->This is the image to be classified and self.text_tokens is the text corresponding to the class
+        output: probs(tensor)--->This is the probability of the image belonging to each class
+        '''
         with torch.no_grad():
             logits_per_image, _ = self.model(image, self.text_tokens)
             probs = logits_per_image.softmax(dim=-1)
         return probs
 
     def adaptation(self, task_id, cfg, train_dataset, train_classes_names):
+        '''
+        input:cfg(dict), train_dataset(list), train_classes_names(list),task_id(int)
+        output:None,however, it will update the model(training the model)
+        '''
         self.current_class_names += get_class_names(self.classes_names, self.class_ids_per_task[task_id])
         self.text_tokens = clip.tokenize(
             [self.prompt_template.format(c) for c in self.current_class_names]
-        ).to(self.device)
+        ).to(self.device) #clip.tokenize 是把文本变成了token
 
         if cfg.method != "zeroshot":
             self.train(task_id, cfg, train_dataset, train_classes_names)
@@ -257,7 +265,7 @@ class ClassIncremental(nn.Module):
                     dim=-1, keepdim=True
                 )
                 # -- image_loss --
-                logits_current = logit_scale.exp() * ref_out_current @ ref_embeddings.t()
+                logits_current = logit_scale.exp() * ref_out_current @ ref_embeddings.t() #logit_scale.exp() 得到大于1的value
                 logits_ref = logit_scale.exp() * ref_out @ ref_embeddings.t()
                 loss_ZSCL = distillation(logits_ref, logits_current, T=2)
                 # -- text_loss --
@@ -274,10 +282,13 @@ class ClassIncremental(nn.Module):
             if cfg.we is not None and cfg.method == "ZSCL" and iteration % cfg.avg_freq == 0:
                 we_n += 1
                 merge_we(self.model, we_model, we_n)
+                #merge_we 函数的作用是将第一个模型的参数取值对第二个模型的相应参数取值进行融合，以此来提升第二个模型的泛化性能
 
         if cfg.we is not None and cfg.method == "ZSCL":
             for param_q, param_k in zip(self.model.parameters(), we_model.parameters()):
                 param_q.data = param_k.data 
+        #这里为什么要替换模型的参数呢？
+        #这个循环的作用就是将 self.model 的参数用 we_model 的参数进行替换。这是知识蒸馏（knowledge distillation）中的一种情景，通过替换模型的参数，来实现从一个更大、更加准确的模型中迁移知识，提升小模型的性能。
 
         self.model.eval()
 
